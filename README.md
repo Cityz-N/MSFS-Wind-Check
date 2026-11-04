@@ -6,6 +6,10 @@ For flight simulation only. Do not use it for real-world navigation.
 
 > **Beta:** tested on Microsoft Flight Simulator 2020. MSFS 2024 hasn't been tested. Please report problems under Issues.
 
+![Winds Aloft window, with the wind compass, winds by level and a SimBrief route](screenshots/main-window.jpg)
+
+![Wind display with the recommended cruise level, above the winds by level](screenshots/wind-display.jpg)
+
 ## Requirements
 
 - Windows 10 or 11, 64-bit
