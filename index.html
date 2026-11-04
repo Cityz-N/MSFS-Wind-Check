@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Winds Aloft</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23171e26' stroke='%234db5ff' stroke-width='2'/%3E%3Cpath d='M16 5l6 14-6-3-6 3z' fill='%23ffc857'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0f1419; --panel: #171e26; --line: #2a343f; --text: #e6ebf0; --dim: #8b98a5;
+  --accent: #4db5ff; --here: #1d3a52; --head: #ff8a65; --tail: #66d19e; --warn: #ffc857; --cruise: #ffbb80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 17px; margin: 0 auto 0 0; }
+h2 { font-size: 15px; margin: 0; }
+main { display: grid; grid-template-columns: minmax(0, 620px) minmax(0, 1fr); gap: 16px; padding: 16px; align-items: start; }
+@media (max-width: 1050px) { main { grid-template-columns: minmax(0, 1fr); } }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.push { margin-left: auto; }
+label { color: var(--dim); font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+input, select, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px; }
+input[type=number] { width: 86px; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #06121c; font-weight: 600; }
+button:disabled { opacity: .55; cursor: default; }
+.num, td, th { font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; width: 100%; }
+th { color: var(--dim); font-size: 11px; font-weight: 500; text-align: right; padding: 3px 6px; box-shadow: inset 0 -1px var(--line); position: sticky; top: 0; z-index: 1; background: var(--panel); white-space: nowrap; }
+td { text-align: right; padding: 2px 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+tr.here td { background: var(--here); font-weight: 600; }
+tr.fix { cursor: pointer; }
+tr.fix:hover td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+tr.detail td { background: color-mix(in srgb, var(--accent) 5%, transparent); font-size: 13px; }
+tr.detail.here td { background: var(--here); }
+tr.detail.sub td { color: var(--dim); font-size: 11px; }
+.head { color: var(--head); } .tail { color: var(--tail); }
+.dim { color: var(--dim); } .warn { color: var(--warn); }
+.arrow { display: inline-block; width: 14px; text-align: center; color: var(--accent); }
+.bar { display: inline-block; height: 7px; background: var(--accent); opacity: .6; border-radius: 2px; vertical-align: middle; }
+.dot { color: var(--accent); }
+.scroll { overflow: auto; max-height: 75vh; }
+.status { font-size: 12px; color: var(--dim); }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 10px; font-size: 13px; }
+.stats b { font-weight: 600; }
+.note { font-size: 12px; color: var(--dim); margin: 10px 0 0; }
+.err { color: var(--head); font-size: 13px; margin: 0 0 8px; }
+.wide { grid-column: 1 / -1; }
+.cruise { color: var(--cruise); font-size: 15px; margin-bottom: 8px; }
+.cruise b { font-size: 19px; }
+.cruise small { font-size: 12px; opacity: .85; }
+summary { cursor: pointer; }
+summary h2 { display: inline; }
+details[open] summary { margin-bottom: 10px; }
+button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; }
+.vizBody { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+.vizLeft { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#rose { width: 210px; height: 210px; display: block; }
+#rose line { stroke: var(--dim); }
+#rose circle { fill: none; stroke: var(--line); }
+#rose text { fill: var(--dim); font-size: 12px; text-anchor: middle; }
+#rose text.card { fill: var(--text); font-weight: 600; }
+#plane { fill: var(--text); }
+#lubber { fill: var(--accent); }
+#windArrow line { stroke: var(--warn); stroke-width: 4; }
+#windArrow path { fill: var(--warn); }
+.comps { display: flex; gap: 20px; }
+.comp { display: grid; grid-template-columns: auto auto; column-gap: 7px; align-items: center; }
+.dbl { grid-row: span 2; font-size: 30px; line-height: 1; }
+.comp b { font-size: 17px; }
+.comp small { color: var(--dim); font-size: 11px; }
+.bigWind { font-size: 38px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bigWind small { font-size: 14px; font-weight: 400; color: var(--dim); }
+.tiles { display: flex; flex-wrap: wrap; gap: 8px 26px; margin-top: 12px; }
+.tile small { display: block; color: var(--dim); font-size: 11px; }
+.tile b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); }
+.badge.sim { border-color: var(--tail); color: var(--tail); }
+tr.lv { cursor: pointer; }
+tr.lv:hover td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+tr.sel td { box-shadow: inset 0 1px var(--warn), inset 0 -1px var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Winds Aloft</h1>
+  <label>Model
+    <select id="model">
+      <option value="gfs_seamless">GFS (28 levels)</option>
+      <option value="ecmwf_ifs025">ECMWF IFS (13 levels)</option>
+    </select>
+  </label>
+  <span class="status" id="run"></span>
+</header>
+<main>
+  <section>
+    <div class="row">
+      <h2>Wind</h2>
+      <span class="badge" id="vizSource">—</span>
+      <button id="vizCurrent" hidden>Back to current</button>
+    </div>
+    <div class="vizBody">
+      <div class="vizLeft">
+        <svg id="rose" viewBox="0 0 240 240" role="img" aria-label="Wind direction relative to the aircraft"></svg>
+        <div class="comps">
+          <div class="comp"><span class="dbl" id="hwArrow">⇓</span><b id="hwVal">—</b><small id="hwLbl">Headwind</small></div>
+          <div class="comp"><span class="dbl" id="xwArrow">⇒</span><b id="xwVal">—</b><small id="xwLbl">Crosswind</small></div>
+        </div>
+      </div>
+      <div>
+        <div class="cruise" id="cruise" hidden></div>
+        <div class="bigWind" id="bigWind">—</div>
+        <div class="tiles">
+          <div class="tile"><small>Level</small><b id="tLevel">—</b></div>
+          <div class="tile"><small>Temperature</small><b id="tTemp">—</b></div>
+          <div class="tile"><small>ISA temperature</small><b id="tIsa">—</b></div>
+          <div class="tile"><small id="tRefLbl">Reference</small><b id="tRef">—</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <details open>
+    <summary><h2>At position</h2> <span class="status" id="simStatus">Connecting…</span></summary>
+    <div class="row">
+      <label>Source <select id="source"><option value="sim">Sim</option><option value="manual">Manual</option></select></label>
+      <label>Levels ± <select id="span"><option selected>5</option><option>10</option><option>15</option><option>20</option></select></label>
+      <button id="ladderRefresh" class="push">Refresh</button>
+    </div>
+    <div class="row" id="manual" hidden>
+      <label>Lat <input id="mLat" type="number" step="0.01" value="51.5"></label>
+      <label>Lon <input id="mLon" type="number" step="0.01" value="-30"></label>
+      <label>FL <input id="mFl" type="number" step="10" value="350"></label>
+      <label>Heading <input id="mHdg" type="number" step="1" min="0" max="360" placeholder="°T"></label>
+    </div>
+    <div class="stats" id="posStats"></div>
+    <p class="err" id="ladderErr" hidden></p>
+    <div class="scroll" id="ladder"></div>
+    <p class="note"><span class="dot">●</span> within 150 ft of a model level. Other rows are interpolated between the two nearest levels. Levels are pressure altitudes; directions are true. Click a row to show it above. Sim seen: what the sim reported when you last passed that level nearby, kept for this page session (2 h, 150 NM).</p>
+    </details>
+  </section>
+
+  <section class="wide">
+    <div class="row">
+      <h2>SimBrief route</h2>
+      <label>Pilot ID or username <input id="sbId" autocomplete="off" style="width:130px"></label>
+      <button id="sbLoad">Load latest plan</button>
+      <label>Times <select id="timeBase"><option value="plan">Plan times</option><option value="now">Depart now</option></select></label>
+      <button id="routeUpdate" class="primary push" disabled>Update winds</button>
+    </div>
+    <p class="err" id="routeErr" hidden></p>
+    <div class="stats" id="routeStats"></div>
+    <div class="scroll" id="route"><p class="dim">Load a plan, then update winds. Click a waypoint for its level-by-level winds.</p></div>
+    <p class="note">Comp: <span class="tail">P</span> tailwind, <span class="head">M</span> headwind, along the leg track. Sim est.: the forecast, corrected by the difference measured between the sim and the forecast at your aircraft, fading with distance and altitude change (faint when little is applied). It's an estimate, not sim data, and needs you in flight. SimBrief can't take these winds; its OFP stays on its own GFS data.</p>
+  </section>
+
+  <section class="wide">
+    <details>
+      <summary><h2>Custom point</h2></summary>
+      <form class="row" id="cpForm">
+        <label>Point <input id="cpPoint" autocomplete="off" placeholder="OKRIX, MTL, LFPG, N48 30 E002 15" style="width:230px"></label>
+        <label>Altitude <input id="cpAlt" autocomplete="off" placeholder="FL350 or 35000" style="width:110px"></label>
+        <label>Time Z <input id="cpTime" autocomplete="off" placeholder="now, or 1830" style="width:90px"></label>
+        <button class="primary" id="cpGo">Show winds</button>
+      </form>
+      <p class="err" id="cpErr" hidden></p>
+      <div id="cpResult"></div>
+    </details>
+  </section>
+</main>
+<footer class="note" style="padding:0 16px 16px">Weather data by <a href="https://open-meteo.com/" style="color:var(--accent)">Open-Meteo.com</a> (<a href="https://creativecommons.org/licenses/by/4.0/" style="color:var(--accent)">CC BY 4.0</a>), from NOAA GFS and ECMWF IFS, interpolated to 1,000 ft levels. Flight simulation use only, not for real-world navigation.</footer>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const MODELS = {
+  gfs_seamless: { name: "GFS", meta: "ncep_gfs025", levels: [1000,975,950,925,900,850,800,750,700,650,600,550,500,450,400,350,300,275,250,225,200,175,150,125,100,70,50,30] },
+  ecmwf_ifs025: { name: "ECMWF", meta: "ecmwf_ifs025", levels: [1000,925,850,700,600,500,400,300,250,200,150,100,50] },
+};
+const DEG = Math.PI / 180;
+const REFETCH_AGE = 600, REFETCH_MOVE = 0.25, CHUNK = 40;
+
+/* ---------- atmosphere and wind maths ---------- */
+function ftToHpa(ft) {   // ISA: this is what a flight level means
+  return ft <= 36089 ? 1013.25 * Math.pow(1 - 6.8756e-6 * ft, 5.2559) : 226.32 * Math.exp((36089 - ft) / 20806);
+}
+function hpaToFt(p) {
+  return p >= 226.32 ? (1 - Math.pow(p / 1013.25, 1 / 5.2559)) / 6.8756e-6 : 36089 - 20806 * Math.log(p / 226.32);
+}
+function isaC(ft) { return ft <= 36089 ? 15 - 0.0019812 * ft : -56.5; }
+function toUV(dir, spd) { return { u: -spd * Math.sin(dir * DEG), v: -spd * Math.cos(dir * DEG) }; }
+function fromUV(u, v) { return { dir: (Math.atan2(-u, -v) / DEG + 360) % 360, spd: Math.hypot(u, v) }; }
+function tailwind(dir, spd, track) { return -spd * Math.cos((dir - track) * DEG); }
+function mix(a, b, f) { return a + (b - a) * f; }
+
+// The two model levels around a pressure, higher pressure first; null if outside the model's range.
+function bracket(levels, hPa) {
+  for (let i = 0; i < levels.length - 1; i++) if (hPa <= levels[i] && hPa >= levels[i + 1]) return [levels[i], levels[i + 1]];
+  return null;
+}
+function levelsFor(model, minFt, maxFt) {
+  const all = MODELS[model].levels, lo = ftToHpa(maxFt), hi = ftToHpa(minFt);
+  const set = new Set(all.filter(p => p >= lo && p <= hi));
+  for (const p of [lo, hi]) { const b = bracket(all, p); if (b) b.forEach(x => set.add(x)); }
+  return [...set].sort((a, b) => b - a);
+}
+
+/* ---------- Open-Meteo ---------- */
+function hourIso(unix) { return new Date(unix * 1000).toISOString().slice(0, 13) + ":00"; }
+
+async function fetchSeries(points, levels, t0, t1, model) {
+  const vars = levels.flatMap(p => [`wind_speed_${p}hPa`, `wind_direction_${p}hPa`, `temperature_${p}hPa`]).join(",");
+  return (await fetchHourly(points, vars, t0, t1, model)).map(s => ({ ...s, levels }));
+}
+
+// Wind 10 m above the ground and temperature at 2 m, wherever the ground is.
+function fetchSurface(points, t0, t1, model) {
+  return fetchHourly(points, "wind_speed_10m,wind_direction_10m,temperature_2m", t0, t1, model);
+}
+
+async function fetchHourly(points, vars, t0, t1, model) {
+  const q = new URLSearchParams({
+    latitude: points.map(p => p.lat.toFixed(4)).join(","), longitude: points.map(p => p.lon.toFixed(4)).join(","),
+    hourly: vars, models: model, wind_speed_unit: "kn", timeformat: "unixtime",
+    start_hour: hourIso(t0 - 3600), end_hour: hourIso(t1 + 3600),
+  });
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?" + q);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.reason || "Open-Meteo error " + r.status);
+  return (Array.isArray(j) ? j : [j]).map(x => ({ times: x.hourly.time, h: x.hourly }));
+}
+
+// One level at time t, interpolated in time on wind components.
+function atTime(s, p, t) {
+  return interpolateTime(s.times, s.h[`wind_speed_${p}hPa`], s.h[`wind_direction_${p}hPa`], s.h[`temperature_${p}hPa`], t);
+}
+
+function surfaceAt(s, t) {
+  const a = interpolateTime(s.times, s.h.wind_speed_10m, s.h.wind_direction_10m, s.h.temperature_2m, t);
+  return a && { ...fromUV(a.u, a.v), temp: a.temp, onLevel: false };
+}
+
+function interpolateTime(T, sp, dr, tm, t) {
+  let i = T.findIndex(x => x > t);
+  if (i < 0) i = T.length - 1;
+  const a = Math.max(0, i - 1), f = T[i] === T[a] ? 0 : Math.min(1, Math.max(0, (t - T[a]) / (T[i] - T[a])));
+  if ([sp[a], dr[a], sp[i], dr[i]].some(x => x == null)) return null;
+  const A = toUV(dr[a], sp[a]), B = toUV(dr[i], sp[i]);
+  return { u: mix(A.u, B.u, f), v: mix(A.v, B.v, f), temp: tm[a] == null || tm[i] == null ? null : mix(tm[a], tm[i], f) };
+}
+
+// Wind at a pressure altitude: linear in ln(pressure) between the two nearest model levels.
+function sample(s, ft, t) {
+  const hPa = ftToHpa(ft), b = bracket(s.levels, hPa);
+  if (!b) return null;
+  const A = atTime(s, b[0], t), B = atTime(s, b[1], t);
+  if (!A || !B) return null;
+  const f = Math.log(b[0] / hPa) / Math.log(b[0] / b[1]);
+  const w = fromUV(mix(A.u, B.u, f), mix(A.v, B.v, f));
+  w.temp = A.temp == null || B.temp == null ? null : mix(A.temp, B.temp, f);
+  w.onLevel = b.some(p => Math.abs(hpaToFt(p) - ft) <= 150);
+  return w;
+}
+
+async function showRun() {
+  const model = $("model").value;
+  try {
+    const m = await (await fetch(`https://api.open-meteo.com/data/${MODELS[model].meta}/static/meta.json`)).json();
+    const run = new Date(m.last_run_initialisation_time * 1000);
+    $("run").textContent = `Latest run ${run.toISOString().slice(11, 13)}Z ${run.toISOString().slice(5, 10)}, available ${new Date(m.last_run_availability_time * 1000).toISOString().slice(11, 16)}Z`;
+  } catch { $("run").textContent = ""; }
+}
+
+/* ---------- formatting ---------- */
+const pad = (n, w) => String(Math.round(n)).padStart(w, "0");
+const fmtFl = ft => "FL" + pad(ft / 100, 3);
+const fmtWind = w => w ? `${pad((Math.round(w.dir) % 360) || 360, 3)}/${pad(w.spd, 3)}` : "—";
+const fmtTemp = t => t == null ? "—" : Math.round(t) === 0 ? "0" : (t > 0 ? "+" : "−") + Math.abs(Math.round(t));
+const fmtComp = c => c == null ? "—" : `<span class="${c < 0 ? "head" : "tail"}">${c < 0 ? "M" : "P"}${pad(Math.abs(c), 3)}</span>`;
+const arrow = d => `<span class="arrow" style="transform:rotate(${(d + 180) % 360}deg)" title="Blowing toward ${pad((d + 180) % 360, 3)}°">↑</span>`;
+function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+function showErr(id, msg) { const e = $(id); e.hidden = !msg; e.textContent = msg || ""; }
+
+function ladderHtml(s, centerFt, span, t, track, markFt, pos) {
+  const center = Math.round(centerFt / 1000) * 1000, rows = [];
+  const hasTrack = track != null && !isNaN(track);
+  const selFt = pos && selected && selected.kind === "level" ? selected.ft : null;
+  for (let i = span; i >= -span; i--) {
+    const ft = center + i * 1000;
+    if (ft < 1000) continue;
+    const w = sample(s, ft, t);
+    if (!w) continue;
+    const seen = pos ? seenAt(ft, pos) : null;
+    rows.push(`<tr class="lv ${ft === Math.round(markFt / 1000) * 1000 ? "here" : ""} ${ft === selFt ? "sel" : ""}" data-ft="${ft}">
+      <td>${fmtFl(ft)}</td><td>${w.onLevel ? '<span class="dot">●</span>' : ""}</td>
+      <td>${arrow(w.dir)} ${fmtWind(w)}</td><td style="text-align:left"><span class="bar" style="width:${Math.min(70, w.spd / 3)}px"></span></td>
+      ${hasTrack ? `<td>${fmtComp(tailwind(w.dir, w.spd, track))}</td>` : ""}
+      <td>${fmtTemp(w.temp)}</td><td class="dim">${fmtTemp(isaC(ft))}</td>
+      ${pos && pos.sim ? `<td>${seen ? fmtWind(seen) : '<span class="dim">—</span>'}</td>` : ""}</tr>`);
+  }
+  if (!rows.length) return '<p class="dim">No model data at these levels.</p>';
+  return `<table><thead><tr><th>Level</th><th title="Within 150 ft of a level the forecast model actually publishes">Real data</th><th>Wind °T/kt</th><th></th>${hasTrack ? "<th>Comp</th>" : ""}<th>°C</th><th>ISA °C</th>${pos && pos.sim ? "<th>Sim seen</th>" : ""}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+
+/* ---------- wind display ---------- */
+let selected = null;  // null = current wind; {kind:"level",ft} or {kind:"snap",...} = what the user clicked
+
+function buildRose() {
+  let card = "";
+  for (let a = 0; a < 360; a += 10) {
+    const major = a % 30 === 0;
+    card += `<line x1="120" y1="16" x2="120" y2="${major ? 28 : 22}" stroke-width="${major ? 2 : 1}" transform="rotate(${a} 120 120)"/>`;
+    if (major) {
+      const name = { 0: "N", 90: "E", 180: "S", 270: "W" }[a];
+      card += `<text class="${name ? "card" : ""}" x="120" y="44" transform="rotate(${a} 120 120)">${name || a / 10}</text>`;
+    }
+  }
+  $("rose").innerHTML = `<circle cx="120" cy="120" r="104"/><g id="roseCard">${card}</g>
+    <path id="lubber" d="M120 12 L114 2 L126 2 Z"/>
+    <path id="plane" d="M120 88 C123 88 124 94 124 100 L124 112 L150 128 L150 134 L124 127 L124 146 L132 152 L132 156 L120 153 L108 156 L108 152 L116 146 L116 127 L90 134 L90 128 L116 112 L116 100 C116 94 117 88 120 88Z"/>
+    <g id="windArrow"><line x1="120" y1="6" x2="120" y2="66"/><path d="M120 82 L110 62 L130 62 Z"/></g>`;
+}
+
+function shownWind() {
+  if (selected && selected.kind === "snap") return selected;
+  const pos = currentPos();
+  if (!pos) return null;
+  const base = { ref: pos.ref, refLabel: pos.refLabel };
+  if (selected && selected.kind === "level") {
+    const w = ladderCache && sample(ladderCache.s, selected.ft, Date.now() / 1000);
+    return w && { ...base, ...w, ft: selected.ft, sim: false, source: `Selected: ${MODELS[ladderCache.model].name} ${fmtFl(selected.ft)}` };
+  }
+  if (pos.sim) return { ...base, dir: pos.raw.wind_dir, spd: pos.raw.wind_spd, temp: pos.raw.oat_c, ft: pos.ft, sim: true, source: "Sim, live" };
+  const w = ladderCache && sample(ladderCache.s, pos.ft, Date.now() / 1000);
+  return w && { ...base, ...w, ft: pos.ft, sim: false, source: `${MODELS[ladderCache.model].name} at manual position` };
+}
+
+function renderViz() {
+  const v = shownWind(), hasRef = v && v.ref != null && !isNaN(v.ref), ref = hasRef ? v.ref : 0;
+  $("vizCurrent").hidden = !selected;
+  $("vizSource").textContent = v ? v.source : "No wind yet";
+  $("vizSource").className = "badge" + (v && v.sim ? " sim" : "");
+  $("roseCard").setAttribute("transform", `rotate(${-ref} 120 120)`);
+  $("plane").style.display = hasRef ? "" : "none";
+  const calm = !v || v.spd < 1;
+  $("windArrow").style.display = calm ? "none" : "";
+  if (!calm) $("windArrow").setAttribute("transform", `rotate(${v.dir - ref} 120 120)`);
+  $("bigWind").innerHTML = !v ? "—" : calm ? "Calm" : `${fmtWind({ dir: v.dir, spd: v.spd }).replace("/", "° / ")} <small>kt, true</small>`;
+  $("tLevel").textContent = v ? v.levelText || fmtFl(Math.max(v.ft, 0)) : "—";
+  $("tTemp").textContent = v && v.temp != null ? fmtTemp(v.temp) + " °C" : "—";
+  $("tIsa").textContent = v ? fmtTemp(isaC(v.ft)) + " °C" : "—";
+  $("tRefLbl").textContent = hasRef ? (v.refLabel === "HDG" ? "Heading" : "Track") : "Reference";
+  $("tRef").textContent = hasRef ? pad(ref, 3) + "°" : "North up";
+  const tail = v && hasRef ? tailwind(v.dir, v.spd, ref) : null;
+  const right = v && hasRef ? v.spd * Math.sin((v.dir - ref) * DEG) : null;
+  $("hwVal").textContent = tail == null ? "—" : Math.abs(Math.round(tail)) + " kt";
+  $("hwLbl").textContent = tail == null || tail <= 0 ? "Headwind" : "Tailwind";
+  $("hwArrow").textContent = tail > 0 ? "⇑" : "⇓";
+  $("hwArrow").className = "dbl " + (tail == null ? "dim" : tail > 0 ? "tail" : "head");
+  $("xwVal").textContent = right == null ? "—" : Math.abs(Math.round(right)) + " kt";
+  $("xwLbl").textContent = right == null ? "Crosswind" : `Crosswind from ${right >= 0 ? "right" : "left"}`;
+  $("xwArrow").textContent = right >= 0 ? "⇐" : "⇒";
+  $("xwArrow").className = "dbl " + (right == null ? "dim" : "");
+}
+
+/* ---------- position panel ---------- */
+let simPos = null, ladderCache = null, ladderBusy = false;
+const seenLevels = new Map();  // the sim only reports wind where the aircraft is, so remember what it reported
+const SEEN_AGE = 7200, SEEN_NM = 150, SEEN_BAND = 200;
+
+function distNm(a, b) {
+  const dLat = (b.lat - a.lat) * DEG, dLon = (b.lon - a.lon) * DEG;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * DEG) * Math.cos(b.lat * DEG) * Math.sin(dLon / 2) ** 2;
+  return 2 * 3440.1 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+function recordSeen(p) {
+  const level = Math.round(p.pressure_alt_ft / 1000) * 1000;
+  if (p.on_ground || Math.abs(p.pressure_alt_ft - level) > SEEN_BAND) return;
+  seenLevels.set(level, { dir: p.wind_dir, spd: p.wind_spd, at: Date.now() / 1000, lat: p.lat, lon: p.lon });
+}
+function seenAt(ft, pos) {
+  const s = seenLevels.get(ft);
+  return s && Date.now() / 1000 - s.at <= SEEN_AGE && distNm(s, pos) <= SEEN_NM ? s : null;
+}
+
+function currentPos() {
+  if ($("source").value === "manual") {
+    const lat = +$("mLat").value, lon = +$("mLon").value, fl = +$("mFl").value;
+    if ($("mLat").value === "" || $("mLon").value === "" || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    const hdg = $("mHdg").value === "" ? null : +$("mHdg").value;
+    return { lat, lon, ft: fl * 100, ref: hdg, refLabel: "HDG", sim: false };
+  }
+  if (!simPos) return null;
+  return { lat: simPos.lat, lon: simPos.lon, ft: simPos.pressure_alt_ft, ref: simPos.heading_true, refLabel: "HDG", sim: true, raw: simPos };
+}
+
+async function pollSim() {
+  try {
+    const j = await (await fetch("/api/position")).json();
+    simPos = j.connected ? j.position : null;
+    if (simPos) recordSeen(simPos);
+    $("simStatus").textContent = !j.connected ? (j.error || "Sim not connected") : simPos && simPos.on_ground ? "Sim connected, on ground" : "Sim connected";
+  } catch {
+    simPos = null;
+    $("simStatus").textContent = "Local server not running: use Start.bat";
+  }
+  if ($("source").value === "sim") await refresh();
+  updateSimOffset();
+  updateSimEst();
+  renderCruise();
+}
+
+function refresh(force) { return updateLadder(force).then(renderViz); }
+
+async function updateLadder(force) {
+  const pos = currentPos(), span = +$("span").value;
+  if (!pos) { $("ladder").innerHTML = '<p class="dim">Waiting for a position. Start the sim, or switch Source to Manual.</p>'; $("posStats").innerHTML = ""; return; }
+  const now = Date.now() / 1000, model = $("model").value;
+  const min = Math.max(1000, pos.ft - (span + 1) * 1000), max = pos.ft + (span + 1) * 1000;
+  const c = ladderCache;
+  const stale = force || !c || c.model !== model || now - c.at > REFETCH_AGE || min < c.min || max > c.max ||
+    Math.abs(pos.lat - c.lat) > REFETCH_MOVE || Math.abs(((pos.lon - c.lon + 540) % 360) - 180) > REFETCH_MOVE;
+  if (stale && !ladderBusy) {
+    ladderBusy = true;
+    try {
+      const fMin = Math.max(1000, min - 3000), fMax = max + 3000;
+      const [s] = await fetchSeries([pos], levelsFor(model, fMin, fMax), now, now + 7200, model);
+      ladderCache = { s, model, at: now, min: fMin, max: fMax, lat: pos.lat, lon: pos.lon };
+      showErr("ladderErr", "");
+    } catch (e) { showErr("ladderErr", "Couldn't fetch winds: " + e.message); }
+    ladderBusy = false;
+  }
+  if (!ladderCache) return;
+  $("ladder").innerHTML = ladderHtml(ladderCache.s, pos.ft, span, now, pos.ref, pos.ft, pos);
+  const f = sample(ladderCache.s, pos.ft, now);
+  let stats = `<span><b>${Math.abs(pos.lat).toFixed(2)}°${pos.lat < 0 ? "S" : "N"} ${Math.abs(pos.lon).toFixed(2)}°${pos.lon < 0 ? "W" : "E"}</b></span><span><b>${fmtFl(pos.ft)}</b> <span class="dim">${Math.round(pos.ft)} ft press alt</span></span>`;
+  if (pos.ref != null) stats += `<span>${pos.refLabel === "HDG" ? "Heading" : "Track"} <b>${pad(pos.ref, 3)}°</b></span>`;
+  if (pos.sim) stats += `<span>Sim wind <b>${fmtWind({ dir: pos.raw.wind_dir, spd: pos.raw.wind_spd })}</b>${f ? ` <span class="dim">model ${fmtWind(f)}</span>` : ""}</span>`;
+  $("posStats").innerHTML = stats;
+}
+
+/* ---------- SimBrief route ---------- */
+let ofp = null, fixes = [];
+const list = x => x == null ? [] : Array.isArray(x) ? x : [x];
+const text = x => x == null || typeof x === "object" ? "" : String(x);  // SimBrief sends {} for empty fields
+const num = x => { const n = parseFloat(x); return isNaN(n) ? null : n; };
+
+function parseUnix(x) {
+  if (x == null || typeof x === "object") return null;
+  if (/^\d+$/.test(String(x))) return +x;
+  const t = Date.parse(x);
+  return isNaN(t) ? null : t / 1000;
+}
+function parseSecs(x) {
+  if (x == null || typeof x === "object") return null;
+  const m = /^(\d+):(\d\d)(?::(\d\d))?$/.exec(String(x));
+  return m ? +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0) : num(x);
+}
+
+// SimBrief's forecast at the fix itself; the navlog's wind_dir/wind_spd are averages over the leg.
+function simbriefLevels(fix) {
+  return list(fix.wind_data && fix.wind_data.level)
+    .map(l => ({ alt: num(l.altitude), dir: num(l.wind_dir), spd: num(l.wind_spd), oat: num(l.oat) }))
+    .filter(l => l.alt != null && l.dir != null && l.spd != null).sort((a, b) => a.alt - b.alt);
+}
+function simbriefAtLevel(levels, ft) {
+  const below = levels.filter(l => l.alt <= ft).pop(), above = levels.find(l => l.alt >= ft);
+  if (!below || !above) return null;
+  const f = above.alt === below.alt ? 0 : (ft - below.alt) / (above.alt - below.alt);
+  const A = toUV(below.dir, below.spd), B = toUV(above.dir, above.spd);
+  const w = fromUV(mix(A.u, B.u, f), mix(A.v, B.v, f));
+  w.oat = below.oat == null || above.oat == null ? null : mix(below.oat, above.oat, f);
+  return w;
+}
+function simbriefWind(fix, ft) {
+  const atLevel = simbriefAtLevel(simbriefLevels(fix), ft);
+  if (atLevel) return atLevel;
+  const d = num(fix.wind_dir), s = num(fix.wind_spd);
+  return d == null || s == null ? null : { dir: d, spd: s };
+}
+function fmtDiff(diff) {
+  return diff == null ? "—" : `<span class="${diff < 0 ? "head" : "tail"}">${Math.round(diff) === 0 ? "" : diff > 0 ? "+" : "−"}${Math.abs(Math.round(diff))}</span>`;
+}
+
+// The sim only reports wind at the aircraft, so measure how far it is from the forecast there
+// and carry that difference along the route, fading it with distance and altitude change.
+let simOffset = null;
+const LEVEL_SPAN = 6, OFFSET_SMOOTHING = 0.1, OFFSET_RESET_NM = 50, FADE_NM = 300, FADE_FT = 6000, FAINT_WEIGHT = 0.25;
+
+function updateSimOffset() {
+  const pos = currentPos();
+  if (!pos || !pos.sim || pos.raw.on_ground || !ladderCache) return;
+  const model = sample(ladderCache.s, pos.ft, Date.now() / 1000);
+  if (!model) return;
+  const s = toUV(pos.raw.wind_dir, pos.raw.wind_spd), m = toUV(model.dir, model.spd), o = simOffset;
+  const u = s.u - m.u, v = s.v - m.v;
+  const restart = !o || o.model !== ladderCache.model || distNm(o, pos) > OFFSET_RESET_NM;
+  simOffset = {
+    u: restart ? u : mix(o.u, u, OFFSET_SMOOTHING), v: restart ? v : mix(o.v, v, OFFSET_SMOOTHING),
+    ft: pos.ft, lat: pos.lat, lon: pos.lon, model: ladderCache.model,
+  };
+}
+
+function simEstimate(f) {
+  const o = simOffset;
+  if (!o || !f.live || o.model !== $("model").value) return null;
+  const weight = Math.exp(-distNm(o, f) / FADE_NM) * Math.exp(-Math.abs(f.ft - o.ft) / FADE_FT);
+  const w = toUV(f.live.dir, f.live.spd);
+  return { ...fromUV(w.u + o.u * weight, w.v + o.v * weight), weight };
+}
+
+// Updates the cells in place, so an open waypoint stays open.
+function updateSimEst() {
+  document.querySelectorAll("#route tr.fix, #route tr.lv").forEach(row => {
+    const f = fixes[+row.dataset.i], se = row.querySelector(".se"), comp = row.querySelector(".sec");
+    const ft = +row.dataset.ft;  // set on a waypoint's level rows
+    const e = simEstimate(ft ? { lat: f.lat, lon: f.lon, ft, live: sample(f.levelSeries, ft, fixTime(f)) } : f);
+    se.textContent = e ? fmtWind(e) : "—";
+    se.className = "se" + (!e || e.weight < FAINT_WEIGHT ? " dim" : "");
+    se.title = e ? `${Math.round(e.weight * 100)}% of the measured difference applied` : "Needs the sim, in flight, and winds updated";
+    comp.innerHTML = fmtComp(e && f.track != null ? tailwind(e.dir, e.spd, f.track) : null);
+  });
+}
+
+/* ---------- recommended cruise level ---------- */
+let cruiseData = null, cruiseBusy = false, cruisePick = null;
+const CRUISE_MIN_FT = 29000, CRUISE_MAX_FT = 51000, CRUISE_KEEP_KT = 1, CRUISE_KEEP_FUEL = 0.002;
+// Generic fuel penalty per air mile for leaving the plan's level: 4% at 4,000 ft below, twice that above.
+const PENALTY_PER_1000FT_SQ = 0.0025, PENALTY_ABOVE_FACTOR = 2, SPEED_OF_SOUND_KT = 38.967;
+
+function fuelPenalty(ft, planFt) {
+  const k = (ft - planFt) / 1000;
+  return PENALTY_PER_1000FT_SQ * k * k * (k > 0 ? PENALTY_ABOVE_FACTOR : 1);
+}
+
+// Levels for the direction of flight: odd eastbound and even westbound, with 2,000 ft spacing above FL410.
+function flyableLevels(track) {
+  const fl = track < 180 ? [290, 310, 330, 350, 370, 390, 410, 430, 470, 510] : [300, 320, 340, 360, 380, 400, 450, 490];
+  return fl.map(x => x * 100);
+}
+
+async function loadCruiseData(points, isRoute) {
+  const model = $("model").value, levels = levelsFor(model, CRUISE_MIN_FT, CRUISE_MAX_FT);
+  const times = points.map(p => p.time), t0 = Math.min(...times), t1 = Math.max(...times), series = [];
+  cruiseBusy = true;
+  try {
+    for (let i = 0; i < points.length; i += CHUNK) series.push(...await fetchSeries(points.slice(i, i + CHUNK), levels, t0, t1, model));
+    cruiseData = { points, series, isRoute, model, at: Date.now() / 1000 };
+  } finally { cruiseBusy = false; }
+}
+
+function routeCruisePoints() {
+  const usable = fixes.filter(f => f.track != null && !f.airport);
+  const cruise = usable.filter(f => f.stage === "CRZ");
+  return (cruise.length ? cruise : usable).map(f => {
+    // The plan's Mach, from its own TAS and temperature. Only cruise legs can anchor the fuel estimate.
+    const mach = cruise.length && f.tas > 0 && f.oat != null ? f.tas / (SPEED_OF_SOUND_KT * Math.sqrt(f.oat + 273.15)) : null;
+    return { lat: f.lat, lon: f.lon, track: f.track, dist: f.dist > 0 ? f.dist : 1, time: fixTime(f), planFt: f.ft, mach: mach > 0.3 && mach < 1 ? mach : null };
+  });
+}
+
+// Without a plan, keep winds for the current position.
+function refreshPositionCruise() {
+  const pos = currentPos(), now = Date.now() / 1000, d = cruiseData;
+  if (fixes.length || !pos || pos.ref == null || cruiseBusy) return;
+  const p = d && d.points[0];
+  if (d && d.model === $("model").value && now - d.at < REFETCH_AGE && distNm(p, pos) < 15) return;
+  loadCruiseData([{ lat: pos.lat, lon: pos.lon, track: pos.ref, dist: 1, time: now, planFt: pos.ft }], false).catch(() => {});
+}
+
+// Forecast plus the sim correction, where that's available.
+function windForCruise(series, p, ft) {
+  const live = sample(series, ft, p.time);
+  if (!live) return null;
+  return simEstimate({ lat: p.lat, lon: p.lon, ft, live }) || live;
+}
+
+function averageComp(points, seriesOf, trackOf, ftOf) {
+  let sum = 0, dist = 0;
+  for (const p of points) {
+    const w = windForCruise(seriesOf(p), p, ftOf(p));
+    if (!w) return null;
+    sum += tailwind(w.dir, w.spd, trackOf(p)) * p.dist;
+    dist += p.dist;
+  }
+  return dist ? sum / dist : null;
+}
+
+// Relative fuel per ground mile: the penalty per air mile, scaled by true airspeed over groundspeed.
+function averageFuel(points, seriesOf, trackOf, ftOf) {
+  let sum = 0, dist = 0;
+  for (const p of points) {
+    const ft = ftOf(p), series = seriesOf(p), live = sample(series, ft, p.time), w = windForCruise(series, p, ft);
+    if (!live || live.temp == null || !w) return null;
+    const tas = p.mach * SPEED_OF_SOUND_KT * Math.sqrt(live.temp + 273.15), gs = tas + tailwind(w.dir, w.spd, trackOf(p));
+    if (gs < 100) return null;
+    sum += (1 + fuelPenalty(ft, p.planFt)) * (tas / gs) * p.dist;
+    dist += p.dist;
+  }
+  return dist ? sum / dist : null;
+}
+
+function computeCruise() {
+  const d = cruiseData, pos = currentPos();
+  if (!d || d.model !== $("model").value) return null;
+  if (!d.isRoute && pos && pos.sim && pos.raw.on_ground) return null;  // a parked heading says nothing about a route
+  const seriesAt = new Map(d.points.map((p, i) => [p, d.series[i]]));
+  let points = d.points;
+  if (d.isRoute && pos && pos.sim && !pos.raw.on_ground) {  // only what's still ahead
+    let nearest = 0, best = Infinity;
+    points.forEach((p, i) => { const nm = distNm(p, pos); if (nm < best) { best = nm; nearest = i; } });
+    points = points.slice(nearest);
+    if (d.points.length > 1 && points.length < 2) return { past: true };
+  }
+  if (!points.length) return null;
+  const trackOf = p => d.isRoute || !pos || pos.ref == null ? p.track : pos.ref;
+  const x = points.reduce((s, p) => s + Math.sin(trackOf(p) * DEG) * p.dist, 0), y = points.reduce((s, p) => s + Math.cos(trackOf(p) * DEG) * p.dist, 0);
+  const meanTrack = (Math.atan2(x, y) / DEG + 360) % 360;
+  const seriesOf = p => seriesAt.get(p), levels = flyableLevels(meanTrack);
+  const compAt = ft => averageComp(points, seriesOf, trackOf, () => ft);
+  const baseFt = d.isRoute ? null : pos ? pos.ft : null;
+  const base = averageComp(points, seriesOf, trackOf, p => baseFt != null ? Math.max(baseFt, 1000) : p.planFt);
+  const shared = { base, count: points.length, meanTrack, isRoute: d.isRoute, baseFt };
+  const planFuel = d.isRoute && points.every(p => p.mach != null) ? averageFuel(points, seriesOf, trackOf, p => p.planFt) : null;
+
+  if (planFuel != null) {  // lowest fuel per ground mile
+    const fuelAt = ft => averageFuel(points, seriesOf, trackOf, () => ft);
+    let pick = null;
+    for (const ft of levels) {
+      const fuel = fuelAt(ft);
+      if (fuel != null && (!pick || fuel < pick.fuel)) pick = { ft, fuel };
+    }
+    if (pick) {
+      if (cruisePick && levels.includes(cruisePick)) {  // don't flip between levels over a tiny difference
+        const kept = fuelAt(cruisePick);
+        if (kept != null && kept - pick.fuel < CRUISE_KEEP_FUEL) pick = { ft: cruisePick, fuel: kept };
+      }
+      cruisePick = pick.ft;
+      return { ...shared, ft: pick.ft, comp: compAt(pick.ft), fuelChange: pick.fuel / planFuel - 1 };
+    }
+  }
+
+  let pick = null;  // no plan to anchor fuel: best wind component
+  for (const ft of levels) {
+    const comp = compAt(ft);
+    if (comp != null && (!pick || comp > pick.comp)) pick = { ft, comp };
+  }
+  if (!pick) return null;
+  if (cruisePick && levels.includes(cruisePick)) {  // don't flip between levels over a knot or so
+    const kept = compAt(cruisePick);
+    if (kept != null && pick.comp - kept < CRUISE_KEEP_KT) pick = { ft: cruisePick, comp: kept };
+  }
+  cruisePick = pick.ft;
+  return { ...shared, ...pick };
+}
+
+function renderCruise() {
+  refreshPositionCruise();
+  const c = computeCruise(), el = $("cruise");
+  el.hidden = !c;
+  if (!c) return;
+  if (c.past) {
+    el.textContent = "Recommended cruise: the plan's cruise is behind you";
+    el.title = "Only the last cruise waypoint or none remains ahead.";
+    return;
+  }
+  const signed = v => (Math.round(v) < 0 ? "M" : "P") + pad(Math.abs(Math.round(v)), 3);
+  const gain = c.base == null ? "" : ` · ${c.comp - c.base >= 0 ? "+" : "−"}${Math.abs(Math.round(c.comp - c.base))} kt vs ${c.isRoute ? "your plan" : fmtFl(c.baseFt)}`;
+  const direction = `${c.meanTrack < 180 ? "eastbound" : "westbound"} levels from FL290 to FL510`;
+  if (c.fuelChange != null) {
+    const pct = Math.round(Math.abs(c.fuelChange) * 100);
+    const fuel = pct === 0 ? "about the same fuel as your plan" : `about ${pct}% ${c.fuelChange < 0 ? "less" : "more"} fuel than your plan`;
+    el.innerHTML = `Recommended cruise <b>${fmtFl(c.ft)}</b> ${signed(c.comp)} · ${fuel} <small>(estimate)</small>`;
+    el.title = `Lowest estimated fuel per ground mile over ${c.count} cruise waypoint${c.count === 1 ? "" : "s"}, among ${direction}. Uses wind, temperature and your plan's Mach, plus a generic penalty for leaving the plan's level. It isn't specific to your aircraft and doesn't check its ceiling, so don't use it for fuel planning.`;
+    return;
+  }
+  el.innerHTML = `Recommended cruise <b>${fmtFl(c.ft)}</b> ${signed(c.comp)}${gain} <small>(winds only)</small>`;
+  el.title = `Best average wind component ${c.isRoute ? `over ${c.count} waypoint${c.count === 1 ? "" : "s"}` : "at this position and heading"}, among ${direction}. Fuel burn needs a plan with cruise waypoints. It doesn't consider weight or ceiling.`;
+}
+
+// The first and last rows are the airports, at their own elevation. SimBrief's navlog may leave the departure out.
+function markAirports(data) {
+  const setAirport = (fix, airport) => {
+    const elevation = num(airport.elevation) || 0;
+    fix.airport = true;
+    fix.ft = elevation;
+    fix.sb = simbriefAtLevel(fix.sbLevels, elevation) || fix.sb;
+  };
+  const newRow = (airport, ident, stage, neighbour) => ({
+    ident, stage, lat: num(airport.pos_lat), lon: num(airport.pos_long), ft: 0, track: neighbour ? neighbour.track : null,
+    heading: neighbour ? neighbour.heading : null, dist: 0, tas: null, oat: null, elapsed: stage === "DEP" ? 0 : neighbour ? neighbour.elapsed : null,
+    sb: null, sbLevels: [], live: null,
+  });
+  const origin = data.origin || {}, destination = data.destination || {};
+  const originId = text(origin.icao_code), destinationId = text(destination.icao_code);
+  const first = fixes[0], last = fixes[fixes.length - 1];
+  if (fixes.length && first.ident === originId) setAirport(first, origin);
+  else if (originId && num(origin.pos_lat) != null) {
+    const row = newRow(origin, originId, "DEP", first);
+    setAirport(row, origin);
+    fixes.unshift(row);
+  }
+  if (last && last.ident === destinationId) setAirport(last, destination);
+  else if (destinationId && num(destination.pos_lat) != null) {
+    const row = newRow(destination, destinationId, "DES", last);
+    setAirport(row, destination);
+    fixes.push(row);
+  }
+  fixes.forEach((f, i) => { f.index = i; });
+}
+const levelText = (f, ft) => f.airport && ft === f.ft ? `${Math.round(ft)} ft` : fmtFl(ft);
+
+function renderOfp(data) {
+  ofp = data;
+  cruiseData = null;
+  cruisePick = null;
+  fixes = list(data.navlog && (data.navlog.fix || data.navlog)).map((f, index) => {
+    const ft = Math.max(num(f.altitude_feet) || 0, 1000);
+    return {
+      index, ident: text(f.ident), stage: text(f.stage), lat: num(f.pos_lat), lon: num(f.pos_long), ft,
+      track: num(f.track_true), heading: num(f.heading_true), dist: num(f.distance), tas: num(f.true_airspeed), oat: num(f.oat),
+      elapsed: parseSecs(f.time_total), sb: simbriefWind(f, ft), sbLevels: simbriefLevels(f), live: null,
+    };
+  }).filter(f => f.lat != null && f.lon != null);
+  markAirports(data);
+  if (!fixes.length) throw new Error("This plan has no waypoints with coordinates. Check that Detailed Navlog is on in SimBrief's options, then generate it again.");
+  $("routeUpdate").disabled = false;
+  renderRoute();
+}
+
+function planOff() {
+  const t = ofp.times || {};
+  return parseUnix(t.est_off) || parseUnix(t.sched_off) || parseUnix(t.est_out) || parseUnix(t.sched_out);
+}
+function fixTime(f) {
+  const off = $("timeBase").value === "now" ? Date.now() / 1000 : (planOff() || Date.now() / 1000);
+  return off + (f.elapsed || 0);
+}
+
+function renderRoute() {
+  const g = ofp.general || {}, o = ofp.origin || {}, d = ofp.destination || {};
+  let distSum = 0, sbSum = 0, liveSum = 0, deltaHrs = 0, compared = 0;
+  const rows = fixes.map((f, i) => {
+    const sbC = f.sb && f.track != null ? tailwind(f.sb.dir, f.sb.spd, f.track) : null;
+    const liveC = f.live && f.track != null ? tailwind(f.live.dir, f.live.spd, f.track) : null;
+    if (sbC != null && liveC != null && f.dist > 0 && f.tas > 0) {
+      distSum += f.dist; sbSum += sbC * f.dist; liveSum += liveC * f.dist; compared++;
+      deltaHrs += f.dist / Math.max(f.tas + liveC, 1) - f.dist / Math.max(f.tas + sbC, 1);
+    }
+    const diff = sbC != null && liveC != null ? liveC - sbC : null;
+    const ttlt = f.elapsed == null ? "—" : `${pad(Math.floor(f.elapsed / 3600), 2)}:${pad(Math.floor(f.elapsed / 60) % 60, 2)}`;
+    return `<tr class="fix" data-i="${i}"><td>${esc(f.ident)}</td><td class="dim">${esc(f.stage)}</td><td>${levelText(f, f.ft)}</td><td class="dim">${ttlt}</td>
+      <td>${fmtWind(f.sb)}</td><td>${fmtComp(sbC)}</td>
+      <td><b>${f.live ? arrow(f.live.dir) + " " + fmtWind(f.live) : "—"}</b></td><td>${fmtComp(liveC)}</td>
+      <td>${fmtDiff(diff)}</td>
+      <td class="se">—</td><td class="sec">—</td>
+      <td class="dim">${fmtTemp(f.oat)}</td><td>${f.live ? fmtTemp(f.live.temp) : "—"}</td></tr>`;
+  }).join("");
+  $("route").innerHTML = `<table><thead><tr><th>Fix</th><th></th><th>Level</th><th>TTLT</th><th>SimBrief</th><th>Comp</th><th>Forecast</th><th>Comp</th><th>Δ kt</th><th title="The forecast, corrected by the difference measured between the sim and the forecast at your aircraft. An estimate, not sim data.">Sim est.</th><th>Comp</th><th>SB °C</th><th>Fcst °C</th></tr></thead><tbody>${rows}</tbody></table>`;
+  updateSimEst();
+  const callsign = text(g.icao_airline) + text(g.flight_number);
+  let stats = `<span><b>${esc(text(o.icao_code))} → ${esc(text(d.icao_code))}</b></span>${callsign ? `<span>${esc(callsign)}</span>` : ""}<span>${fixes.length} fixes</span>`;
+  if (compared) {
+    const dm = deltaHrs * 60;
+    const change = Math.abs(dm) < 0.5 ? "about the same flight time as with SimBrief's winds" : `about ${Math.round(Math.abs(dm))} min ${dm > 0 ? "longer" : "shorter"} than with SimBrief's winds`;
+    stats += `<span>Avg comp SimBrief ${fmtComp(sbSum / distSum)} → forecast ${fmtComp(liveSum / distSum)}</span><span title="Each leg's time recalculated at its planned TAS, using the forecast wind instead of SimBrief's">Forecast winds: <b>${change}</b></span>`;
+  }
+  $("routeStats").innerHTML = stats;
+}
+
+async function loadPlan() {
+  const id = $("sbId").value.trim();
+  showErr("routeErr", "");
+  if (!id) return showErr("routeErr", "Enter your SimBrief Pilot ID or username.");
+  try { localStorage.setItem("windsaloft.sbid", id); } catch {}
+  $("sbLoad").disabled = true;
+  try {
+    const key = /^\d+$/.test(id) ? "userid" : "username";
+    const r = await fetch(`https://www.simbrief.com/api/xml.fetcher.php?${key}=${encodeURIComponent(id)}&json=1`);
+    const j = await r.json();
+    if (!r.ok) throw new Error((j.fetch && j.fetch.status) || "SimBrief error " + r.status);
+    renderOfp(j);
+    await updateRoute();
+  } catch (e) { showErr("routeErr", "Couldn't load the plan: " + e.message); }
+  $("sbLoad").disabled = false;
+}
+
+async function updateRoute() {
+  if (!fixes.length) return;
+  const model = $("model").value, all = MODELS[model].levels, btn = $("routeUpdate");
+  btn.disabled = true;
+  showErr("routeErr", "");
+  try {
+    const groups = new Map();  // only the two levels each fix needs, so a refresh stays cheap
+    for (const f of fixes) {
+      f.live = null;
+      if (f.airport) continue;
+      const b = bracket(all, ftToHpa(f.ft));
+      if (!b) continue;
+      const k = b.join("-");
+      if (!groups.has(k)) groups.set(k, { b, items: [] });
+      groups.get(k).items.push(f);
+    }
+    const times = fixes.map(fixTime), t0 = Math.min(...times), t1 = Math.max(...times);
+    for (const { b, items } of groups.values()) {
+      for (let i = 0; i < items.length; i += CHUNK) {
+        const part = items.slice(i, i + CHUNK);
+        btn.textContent = "Updating…";
+        const series = await fetchSeries(part, b, t0, t1, model);
+        part.forEach((f, n) => { f.live = sample(series[n], f.ft, fixTime(f)); });
+      }
+    }
+    const airports = fixes.filter(f => f.airport);
+    if (airports.length) {
+      const series = await fetchSurface(airports, t0, t1, model);
+      airports.forEach((f, n) => { f.live = surfaceAt(series[n], fixTime(f)); });
+    }
+    renderRoute();
+    const points = routeCruisePoints();
+    if (points.length) { await loadCruiseData(points, true); renderCruise(); }
+    if (fixes.some(f => !f.live)) showErr("routeErr", "Some waypoints have no data: their times may be outside this model's forecast. Try Times: Depart now.");
+  } catch (e) { showErr("routeErr", "Couldn't update winds: " + e.message); }
+  btn.textContent = "Update winds";
+  btn.disabled = false;
+}
+
+// A waypoint's level rows, in the same columns as the route table.
+function levelRowsHtml(f, s, t) {
+  const center = Math.round(f.ft / 1000) * 1000, rows = [];
+  for (let i = LEVEL_SPAN; i >= -LEVEL_SPAN; i--) {
+    const ft = center + i * 1000;
+    const w = ft < 1000 ? null : sample(s, ft, t);
+    if (!w) continue;
+    const sb = simbriefAtLevel(f.sbLevels, ft), has = f.track != null;
+    const sbC = sb && has ? tailwind(sb.dir, sb.spd, f.track) : null, fc = has ? tailwind(w.dir, w.spd, f.track) : null;
+    rows.push(`<tr class="lv detail ${ft === center ? "here" : ""}" data-i="${f.index}" data-ft="${ft}">
+      <td></td><td></td><td>${fmtFl(ft)}</td><td style="text-align:center">${w.onLevel ? '<span class="dot">●</span>' : ""}</td><td></td>
+      <td>${fmtComp(sbC)}</td><td>${arrow(w.dir)} ${fmtWind(w)}</td><td>${fmtComp(fc)}</td>
+      <td>${fmtDiff(sbC != null && fc != null ? fc - sbC : null)}</td><td class="se">—</td><td class="sec">—</td>
+      <td class="dim">${sb ? fmtTemp(sb.oat) : "—"}</td><td>${fmtTemp(w.temp)}</td></tr>`);
+  }
+  const sub = `<tr class="detail sub"><td colspan="3"></td><td title="Within 150 ft of a level the forecast model actually publishes">Real data</td><td colspan="9"></td></tr>`;
+  return sub + rows.join("");
+}
+
+function closeLevels(row) {
+  let next = row.nextElementSibling, open = false;
+  while (next && next.classList.contains("detail")) { const after = next.nextElementSibling; next.remove(); next = after; open = true; }
+  return open;
+}
+
+async function toggleFix(row) {
+  if (closeLevels(row)) return;
+  const f = fixes[+row.dataset.i], t = fixTime(f), model = $("model").value;
+  if (f.live) selectFix(f, f.live, f.ft);
+  const tr = document.createElement("tr");
+  tr.className = "detail";
+  tr.innerHTML = `<td colspan="13" class="dim">Loading ${esc(f.ident)}…</td>`;
+  row.after(tr);
+  try {
+    const [s] = await fetchSeries([f], levelsFor(model, Math.max(1000, f.ft - 8000), f.ft + 8000), t, t, model);
+    f.levelSeries = s;
+    closeLevels(row);
+    row.insertAdjacentHTML("afterend", levelRowsHtml(f, s, t));
+    updateSimEst();
+  } catch (e) { tr.firstChild.textContent = "Couldn't fetch winds: " + e.message; }
+}
+
+function selectFix(f, w, ft) {
+  const hasHdg = f.heading != null;  // the planned heading if the plan has one, else the leg track
+  selected = { kind: "snap", ...w, ft, ref: hasHdg ? f.heading : f.track, refLabel: hasHdg ? "HDG" : "TRK", sim: false, levelText: levelText(f, ft), source: `Selected: ${f.ident} ${levelText(f, ft)}, ${MODELS[$("model").value].name}` };
+  renderViz();
+}
+
+/* ---------- custom point ---------- */
+let cp = null;  // {name, lat, lon, ft, t, series, others}
+
+function coordPart(s, degDigits) {
+  const parts = s.trim().split(/\s+/);
+  if (parts.length === 1) {
+    const [whole, frac] = parts[0].split(".");
+    if (whole.length <= degDigits) return parseFloat(parts[0]);  // degrees, maybe decimal
+    const deg = whole.slice(0, -2), min = whole.slice(-2) + (frac ? "." + frac : "");
+    return +deg + +min / 60;  // run together: 4830 or 00215.5
+  }
+  return +parts[0] + +parts[1] / 60 + (+parts[2] || 0) / 3600;
+}
+
+// 48.5 2.35 | 48,5 2,35 | N48 30 E002 15 | N4830.5 E00215.2 | 48°30'N 2°15'E | 4830N00215E
+function parseCoord(input) {
+  let s = input.trim().toUpperCase(), lat, lon, m;
+  if ((m = /^([-+]?\d+(?:[.,]\d+)?)\s+([-+]?\d+(?:[.,]\d+)?)$/.exec(s)) || (m = /^([-+]?\d+(?:\.\d+)?)\s*[,/]\s*([-+]?\d+(?:\.\d+)?)$/.exec(s))) {
+    lat = parseFloat(m[1].replace(",", ".")); lon = parseFloat(m[2].replace(",", "."));
+  } else {
+    s = s.replace(/[°'’"″′]/g, " ").replace(/,/g, " ");
+    if ((m = /^([NS])\s*([\d.\s]+?)\s*([EW])\s*([\d.\s]+)$/.exec(s))) {
+      lat = coordPart(m[2], 2) * (m[1] === "S" ? -1 : 1); lon = coordPart(m[4], 3) * (m[3] === "W" ? -1 : 1);
+    } else if ((m = /^([\d.\s]+?)\s*([NS])\s*([\d.\s]+?)\s*([EW])$/.exec(s))) {
+      lat = coordPart(m[1], 2) * (m[2] === "S" ? -1 : 1); lon = coordPart(m[3], 3) * (m[4] === "W" ? -1 : 1);
+    } else return null;
+  }
+  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null;
+}
+
+// FL350, F350 or 350 are flight levels; 35000 or 35000ft are feet.
+function parseAltitude(input) {
+  const m = /^(FL?)?\s*(\d+)\s*(FT)?$/.exec(input.trim().toUpperCase());
+  if (!m) return null;
+  const n = +m[2], ft = m[1] || (!m[3] && n < 1000) ? n * 100 : n;
+  return ft <= 70000 ? ft : null;
+}
+
+function parseZulu(input) {
+  const s = input.trim().replace(":", "").replace(/Z$/i, "");
+  if (!s || /^now$/i.test(s)) return Date.now() / 1000;
+  if (!/^\d{4}$/.test(s) || +s.slice(0, 2) > 23 || +s.slice(2) > 59) return null;
+  const d = new Date(), t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), +s.slice(0, 2), +s.slice(2)) / 1000;
+  return t < Date.now() / 1000 - 3600 ? t + 86400 : t;  // earlier today means tomorrow
+}
+
+function fmtLatLon(p) {
+  const f = (v, pos, neg, w) => `${v < 0 ? neg : pos}${pad(Math.floor(Math.abs(v)), w)}°${(Math.abs(v) % 1 * 60).toFixed(1).padStart(4, "0")}′`;
+  return `${f(p.lat, "N", "S", 2)} ${f(p.lon, "E", "W", 3)}`;
+}
+
+// Plan waypoints first, because they need no sim; then the sim's navigation database.
+async function findPoint(input) {
+  const coord = parseCoord(input);
+  if (coord) return { matches: [{ ...coord, name: fmtLatLon(coord), detail: "" }] };
+  const q = input.trim().toUpperCase(), ref = currentPos();
+  const inPlan = fixes.find(f => f.ident.toUpperCase() === q);
+  if (inPlan) return { matches: [{ lat: inPlan.lat, lon: inPlan.lon, name: inPlan.ident, detail: "in your plan" }] };
+  let j;
+  try { j = await (await fetch("/api/lookup?id=" + encodeURIComponent(q))).json(); }
+  catch { throw new Error("Couldn't reach the local server."); }
+  if (j.error) throw new Error(`${j.error}. Coordinates and plan waypoints still work.`);
+  if (!j.results.length) throw new Error(`The sim's database has no ${q}.`);
+  const matches = j.results.map(r => ({
+    lat: r.lat, lon: r.lon, name: r.ident,
+    detail: r.type + (r.region ? ` ${r.region}` : ""),
+    away: ref ? distNm(ref, r) : null,
+  }));
+  if (ref) matches.sort((a, b) => a.away - b.away);
+  return { matches };
+}
+
+async function showPoint(match, others) {
+  const ft = parseAltitude($("cpAlt").value), t = parseZulu($("cpTime").value), model = $("model").value;
+  const series = (await fetchSeries([match], levelsFor(model, Math.max(1000, ft - 8000), ft + 8000), t, t, model))[0];
+  cp = { ...match, ft, t, series, others, model };
+  renderPoint();
+  const w = sample(series, ft, t);
+  if (w) selectPoint(w, ft);
+}
+
+function selectPoint(w, ft) {
+  const pos = currentPos();
+  selected = { kind: "snap", ...w, ft, ref: pos ? pos.ref : null, refLabel: "HDG", sim: false,
+    source: `Selected: ${cp.name} ${fmtFl(ft)}, ${MODELS[cp.model].name}` };
+  renderViz();
+}
+
+function renderPoint() {
+  const pos = currentPos(), when = new Date(cp.t * 1000).toISOString().slice(11, 16);
+  const away = cp.away != null ? `, ${Math.round(cp.away)} NM away` : "";
+  const others = cp.others.map((m, i) => `<button type="button" class="link" data-other="${i}">${esc(m.name)} ${esc(m.detail)}${m.away != null ? `, ${Math.round(m.away)} NM` : ""}</button>`).join(" · ");
+  $("cpResult").innerHTML = `<div class="stats"><span><b>${esc(cp.name)}</b> ${esc(cp.detail)}</span>${cp.name === fmtLatLon(cp) ? "" : `<span class="dim">${fmtLatLon(cp)}${away}</span>`}<span>${fmtFl(cp.ft)}</span><span>${when}Z</span></div>
+    ${others ? `<p class="note" style="margin:0 0 8px">Same name elsewhere: ${others}</p>` : ""}
+    <div class="scroll">${ladderHtml(cp.series, cp.ft, 6, cp.t, pos ? pos.ref : null, cp.ft)}</div>`;
+}
+
+async function runPoint(e) {
+  e.preventDefault();
+  showErr("cpErr", "");
+  if (!$("cpPoint").value.trim()) return showErr("cpErr", "Enter a fix, navaid, airport or coordinate.");
+  if (parseAltitude($("cpAlt").value) == null) return showErr("cpErr", "Enter an altitude, such as FL350 or 35000.");
+  if (parseZulu($("cpTime").value) == null) return showErr("cpErr", "Enter a time as HHMM in Zulu, or leave it empty for now.");
+  $("cpGo").disabled = true;
+  try {
+    const { matches } = await findPoint($("cpPoint").value);
+    await showPoint(matches[0], matches.slice(1));
+  } catch (err) { showErr("cpErr", err.message); }
+  $("cpGo").disabled = false;
+}
+
+/* ---------- wiring ---------- */
+$("cpForm").onsubmit = runPoint;
+$("cpResult").onclick = async e => {
+  const other = e.target.closest("[data-other]"), lv = e.target.closest("tr.lv");
+  if (other) {
+    const all = [cp, ...cp.others], chosen = cp.others[+other.dataset.other];
+    const pick = ({ lat, lon, name, detail, away }) => ({ lat, lon, name, detail, away });
+    try { await showPoint(pick(chosen), all.filter(m => m !== chosen).map(pick)); }
+    catch (err) { showErr("cpErr", err.message); }
+  } else if (lv) {
+    const ft = +lv.dataset.ft, w = sample(cp.series, ft, cp.t);
+    if (w) selectPoint(w, ft);
+  }
+};
+$("source").onchange = () => { $("manual").hidden = $("source").value !== "manual"; ladderCache = null; refresh(true); };
+$("span").onchange = () => refresh();
+["mLat", "mLon", "mFl", "mHdg"].forEach(id => $(id).onchange = () => refresh());
+$("ladderRefresh").onclick = () => refresh(true);
+$("model").onchange = () => {
+  showRun(); refresh(true);
+  if (fixes.length) updateRoute();
+  if (cp) { const { lat, lon, name, detail, away, others } = cp; showPoint({ lat, lon, name, detail, away }, others).catch(err => showErr("cpErr", err.message)); }
+};
+$("vizCurrent").onclick = () => { selected = null; refresh(); };
+$("ladder").onclick = e => {
+  const r = e.target.closest("tr.lv");
+  if (r) { selected = { kind: "level", ft: +r.dataset.ft }; refresh(); }
+};
+$("timeBase").onchange = () => { if (fixes.length) updateRoute(); };
+$("sbLoad").onclick = loadPlan;
+$("routeUpdate").onclick = updateRoute;
+$("route").onclick = e => {
+  const lv = e.target.closest("tr.lv"), r = e.target.closest("tr.fix");
+  if (lv) {
+    const f = fixes[+lv.dataset.i], ft = +lv.dataset.ft;
+    const w = sample(f.levelSeries, ft, fixTime(f));
+    if (w) selectFix(f, w, ft);
+  } else if (r) toggleFix(r);
+};
+try { $("sbId").value = localStorage.getItem("windsaloft.sbid") || ""; } catch {}
+window.addEventListener("pagehide", () => navigator.sendBeacon("/api/closing"));
+buildRose();
+renderViz();
+showRun();
+pollSim();
+setInterval(pollSim, 2000);
+</script>
+</body>
+</html>
