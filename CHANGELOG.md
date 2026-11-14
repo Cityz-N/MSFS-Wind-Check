@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 (beta)
+
+- New icon for WindsAloft.exe and its window
+
 ## 0.9.0 (beta)
 
 First public beta.
